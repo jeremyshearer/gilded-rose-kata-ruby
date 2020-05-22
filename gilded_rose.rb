@@ -1,9 +1,48 @@
 # frozen_string_literal: true
 
+class NormalUpdater
+  attr_accessor :item
+
+  def initialize(item)
+    @item = item
+  end
+
+  def update
+    decrease_quality(item)
+    decrease_quality(item) if item.sell_in < 0
+  end
+
+  def increase_quality(item)
+    item.quality += 1 if item.quality < 50
+  end
+
+  def decrease_quality(item)
+    item.quality -= 1 if item.quality > 0
+  end
+end
+
+class BrieUpdater < NormalUpdater
+  def update
+    increase_quality(item)
+    increase_quality(item) if item.sell_in < 0
+  end
+end
+
+class BackstagePassesUpdater < NormalUpdater
+  def update
+    return item.quality = 0 if item.sell_in < 0
+
+    increase_quality(item)
+    increase_quality(item) if item.sell_in < 10
+    increase_quality(item) if item.sell_in < 5
+  end
+end
+
 class GildedRose
-  SULFURAS = 'Sulfuras, Hand of Ragnaros'
-  AGED_BRIE = 'Aged Brie'
-  BACKSTAGE_PASSES = 'Backstage passes to a TAFKAL80ETC concert'
+  ITEM_CLASS_LOOKUP = {
+    'Aged Brie' => BrieUpdater,
+    'Backstage passes to a TAFKAL80ETC concert' => BackstagePassesUpdater
+  }.freeze
 
   def initialize(items)
     @items = items
@@ -11,44 +50,12 @@ class GildedRose
 
   def update_quality
     @items.each do |item|
-      return if item.name == SULFURAS
-      case item.name
-      when AGED_BRIE
-        increase_quality(item)
-      when BACKSTAGE_PASSES
-        increase_quality(item) if item.sell_in < 11
-        increase_quality(item) if item.sell_in < 6
-        increase_quality(item)
-      else
-        decrease_quality(item)
-      end
+      return if item.name == 'Sulfuras, Hand of Ragnaros'
 
-      item.sell_in = item.sell_in - 1
-
-      return if item.sell_in >= 0
-
-      if item.name == AGED_BRIE
-        increase_quality(item)
-      elsif item.name == BACKSTAGE_PASSES
-        item.quality = 0
-      else
-        decrease_quality(item)
-      end
+      item.sell_in -= 1
+      klass = ITEM_CLASS_LOOKUP.fetch(item.name, NormalUpdater)
+      klass.new(item).update
     end
-  end
-
-  private
-
-  def increase_quality(item)
-    return if item.quality >= 50
-
-    item.quality += 1
-  end
-
-  def decrease_quality(item)
-    return if item.quality <= 0
-
-    item.quality -= 1
   end
 end
 
